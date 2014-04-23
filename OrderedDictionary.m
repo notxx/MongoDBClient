@@ -53,7 +53,10 @@ NSString *DescriptionForObject(NSObject *object, id locale, NSUInteger indent)
 	return objectString;
 }
 
-@implementation OrderedDictionary
+@implementation OrderedDictionary {
+	NSMutableDictionary *dictionary;
+	NSMutableArray *array;
+}
 
 - (id)init
 {
@@ -71,17 +74,15 @@ NSString *DescriptionForObject(NSObject *object, id locale, NSUInteger indent)
 	return self;
 }
 
-- (void)dealloc
-{
 #if !__has_feature(objc_arc)
+- (void)dealloc {
 	[dictionary release];
 	[array release];
 	[super dealloc];
-#endif
 }
+#endif
 
-- (id)copy
-{
+- (id)copy {
 	return [self mutableCopy];
 }
 
