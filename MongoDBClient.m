@@ -13,11 +13,24 @@
 #pragma mark -
 #pragma mark Special Mongo objects
 
+@interface MongoDocument : NSObject
+
+@property (nonatomic, copy) NSDictionary * Content;
+@property (nonatomic, copy) NSArray * Keys;
+
+@end
+
+@implementation MongoDocument
++ (instancetype)new {
+	return [[self alloc] init];
+}
+@end
+
 @implementation MongoObjectId {
     bson_oid_t value;
 }
 
-+ (MongoObjectId*)newWithString:(NSString*)string {
++ (instancetype)newWithString:(NSString*)string {
     const char* chars = [string UTF8String];
     bson_oid_t oid;
     
@@ -217,13 +230,13 @@ static id object_from_bson(bson_iterator* it) {
             break;
         case BSON_OBJECT:
             value = [NSMutableDictionary dictionary];
-            bson_iterator_subobject(it, &subobject);
+            bson_iterator_subobject_init(it, &subobject, 0);
             bson_iterator_init(&it2, &subobject);
             fill_object_from_bson(value, &it2);
             break;
         case BSON_ARRAY:
             value = [NSMutableArray array];
-            bson_iterator_subobject(it, &subobject);
+            bson_iterator_subobject_init(it, &subobject, 0);
             bson_iterator_init(&it2, &subobject);
             fill_object_from_bson(value, &it2);
             break;
@@ -318,6 +331,9 @@ static void build_error(MongoDBClient* client, NSError** error) {
 
     if(error) {
         switch ( conn->err ) {
+            case MONGO_CONN_SUCCESS:
+                *error = nil;
+                break;
             case MONGO_CONN_NO_SOCKET:
                 *error = [NSError errorWithDomain: @"No socket" code: conn->err userInfo: nil];
                 break;
@@ -331,7 +347,7 @@ static void build_error(MongoDBClient* client, NSError** error) {
                 *error = [NSError errorWithDomain: @"Database is not a master" code: conn->err userInfo: nil];
                 break;
             default:
-                mongo_cmd_get_last_error(conn, [client.database UTF8String], nil);
+                mongo_cmd_get_last_error(conn, [client.database UTF8String], NULL);
                 *error = [NSError errorWithDomain: [NSString stringWithCString: conn->lasterrstr encoding: NSUTF8StringEncoding] code: conn->err userInfo: nil];
         }
     }
@@ -339,7 +355,7 @@ static void build_error(MongoDBClient* client, NSError** error) {
     mongo_clear_errors(conn);
 }
                   
-+ (MongoDBClient*) newWithHost:(NSString*)host port:(NSUInteger)port andError:(NSError**)error {
++ (instancetype) newWithHost:(NSString*)host port:(NSUInteger)port andError:(NSError**)error {
     return [[MongoDBClient alloc] initWithHost: host port: port andError: error];
 }
 
@@ -403,7 +419,7 @@ static void build_error(MongoDBClient* client, NSError** error) {
 - (BOOL) insert:(NSDictionary*) object intoCollection:(NSString*)collection withError:(NSError**)error {
     bson doc;
     bsonFromDictionary(&doc, object);
-    int result = mongo_insert(&conn, [[NSString stringWithFormat: @"%@.%@", self.database, collection] cStringUsingEncoding: NSUTF8StringEncoding], &doc, nil);
+    int result = mongo_insert(&conn, [[NSString stringWithFormat: @"%@.%@", self.database, collection] cStringUsingEncoding: NSUTF8StringEncoding], &doc, NULL);
     bson_destroy(&doc);
     
     if(result == MONGO_OK) {
@@ -448,7 +464,7 @@ static void build_error(MongoDBClient* client, NSError** error) {
     bsonFromDictionary(&mongo_query, to_update);
     bsonFromDictionary(&mongo_op, operation);
     
-    int result = mongo_update(&conn, [[NSString stringWithFormat: @"%@.%@", self.database, collection] cStringUsingEncoding: NSUTF8StringEncoding], &mongo_query, &mongo_op, flag, nil);
+    int result = mongo_update(&conn, [[NSString stringWithFormat: @"%@.%@", self.database, collection] cStringUsingEncoding: NSUTF8StringEncoding], &mongo_query, &mongo_op, flag, NULL);
     
     bson_destroy(&mongo_op);
     bson_destroy(&mongo_query);
@@ -478,7 +494,7 @@ static void build_error(MongoDBClient* client, NSError** error) {
     bson mongo_query;
     
     bsonFromDictionary(&mongo_query, to_remove);
-    int result = mongo_remove(&conn, [[NSString stringWithFormat: @"%@.%@", self.database, collection] cStringUsingEncoding: NSUTF8StringEncoding], &mongo_query, nil);
+    int result = mongo_remove(&conn, [[NSString stringWithFormat: @"%@.%@", self.database, collection] cStringUsingEncoding: NSUTF8StringEncoding], &mongo_query, NULL);
     bson_destroy(&mongo_query);
     
     if(result == MONGO_OK) {
@@ -548,7 +564,7 @@ static void build_error(MongoDBClient* client, NSError** error) {
             had_columns = YES;
         } else {
             had_columns = NO;
-            mongo_cursor_set_fields(&cursor, nil);
+            mongo_cursor_set_fields(&cursor, NULL);
         }
         if(toSkip>0) {
             mongo_cursor_set_skip(&cursor, (int)toSkip);

@@ -2,7 +2,7 @@ CC	= clang
 CFLAGS	= -fPIC -Wunused -fconstant-string-class=NSConstantString -fblocks -D_NATIVE_OBJC_EXCEPTIONS -fobjc-runtime=gnustep -fobjc-arc
 LDFLAGS	= -Wunused -L/usr/local/lib -lobjc -L/usr/GNUstep/Local/Library/Libraries -lgnustep-base -fconstant-string-class=NSConstantString -fblocks -lBlocksRuntime -fobjc-arc -fobjc-nonfragile-abi -D_NATIVE_OBJC_EXCEPTIONS -lmongoc
 
-SOURCES	= $(wildcard MongoDBClient/*.m)
+SOURCES	= $(wildcard *.m)
 RELEASE_OBJECTS	= $(patsubst %.m,%.release.o,$(SOURCES))
 DEBUG_OBJECTS	= $(patsubst %.m,%.debug.o,$(SOURCES))
 
