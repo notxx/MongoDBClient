@@ -7,6 +7,7 @@
 //
 
 #import <Foundation/Foundation.h>
+#import "OrderedDictionary.h"
 
 @interface MongoObjectId : NSObject
 
@@ -34,7 +35,7 @@
 
 @interface MongoDbCursor : NSObject
 
-- (BOOL) nextDocumentIntoDictionary:(NSMutableDictionary*)doc withKeys:(NSMutableArray*)keys andError:(NSError**)error;
+- (BOOL) next:(OrderedDictionary*)doc withError:(NSError**)error;
 
 @end
 

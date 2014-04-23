@@ -13,19 +13,6 @@
 #pragma mark -
 #pragma mark Special Mongo objects
 
-@interface MongoDocument : NSObject
-
-@property (nonatomic, copy) NSDictionary * Content;
-@property (nonatomic, copy) NSArray * Keys;
-
-@end
-
-@implementation MongoDocument
-+ (instancetype)new {
-	return [[self alloc] init];
-}
-@end
-
 @implementation MongoObjectId {
     bson_oid_t value;
 }
@@ -134,7 +121,7 @@
 #pragma mark BSON stuff
 
 static void add_object_to_bson(bson* b, NSString* key, id obj) {
-    const char* key_name = [key cStringUsingEncoding: NSUTF8StringEncoding];
+    const char* key_name = key.UTF8String;
     
     if([obj isKindOfClass: [NSNumber class]]) {
         const char *objCType = [obj objCType];
@@ -184,14 +171,16 @@ static void add_object_to_bson(bson* b, NSString* key, id obj) {
     } else if([obj isKindOfClass: [MongoTimestamp class]]) {
         bson_append_timestamp2(b, key_name, [obj timeIntervalSince1970], 0);
     } else if([obj isKindOfClass: [MongoSymbol class]]) {
-        bson_append_symbol(b, key_name, [obj cStringUsingEncoding: NSUTF8StringEncoding]);
+        bson_append_symbol(b, key_name, [obj UTF8String]);
     } else if([obj isKindOfClass: [MongoUndefined class]]) {
         bson_append_undefined(b, key_name);
     } else if([obj isKindOfClass: [MongoRegex class]]) {
         MongoRegex* regex = obj;
-        bson_append_regex(b, key_name, [[regex pattern] cStringUsingEncoding: NSUTF8StringEncoding], [[regex options] cStringUsingEncoding: NSUTF8StringEncoding]);
+        bson_append_regex(b, key_name, [regex.pattern UTF8String], [regex.options UTF8String]);
     } else if([obj respondsToSelector: @selector(cStringUsingEncoding:)]) {
         bson_append_string(b, key_name, [obj cStringUsingEncoding: NSUTF8StringEncoding]);
+    } else if([obj respondsToSelector: @selector(UTF8String)]) {
+        bson_append_string(b, key_name, [obj UTF8String]);
     } else {
         @throw [NSException exceptionWithName: @"CRASH" reason: @"Unhandled object type in BSON serialization" userInfo: [NSDictionary dictionaryWithObject: obj forKey: @"object"]];
     }
@@ -229,7 +218,7 @@ static id object_from_bson(bson_iterator* it) {
                                              encoding: NSUTF8StringEncoding];
             break;
         case BSON_OBJECT:
-            value = [NSMutableDictionary dictionary];
+            value = [OrderedDictionary new];
             bson_iterator_subobject_init(it, &subobject, 0);
             bson_iterator_init(&it2, &subobject);
             fill_object_from_bson(value, &it2);
@@ -294,13 +283,10 @@ static id object_from_bson(bson_iterator* it) {
     return value;
 }
 
-static void fill_object_from_bson_ext(id object, NSMutableArray* keys, bson_iterator* it) {
-    if([object isKindOfClass: [NSDictionary class]]) {
-        [keys removeAllObjects];
-        
+static void fill_object_from_bson_ext(id object, bson_iterator* it) {
+    if([object isKindOfClass: [OrderedDictionary class]]) {
         while(bson_iterator_next(it)) {
-            NSString* key = [NSString stringWithCString: bson_iterator_key(it) encoding: NSUTF8StringEncoding];
-            [keys addObject: key];
+            NSString* key = [NSString stringWithUTF8String: bson_iterator_key(it)];
             
             id val = object_from_bson(it);
             [object setObject: val forKey: key];
@@ -313,7 +299,7 @@ static void fill_object_from_bson_ext(id object, NSMutableArray* keys, bson_iter
 }
 
 static void fill_object_from_bson(id object, bson_iterator* it) {
-    fill_object_from_bson_ext(object, nil, it);
+    fill_object_from_bson_ext(object, it);
 }
 
 #pragma mark -
@@ -366,7 +352,7 @@ static void build_error(MongoDBClient* client, NSError** error) {
         
         mongo_init(&conn);
         
-        status = mongo_client(&conn, [host cStringUsingEncoding: NSUTF8StringEncoding], (int)port);
+        status = mongo_client(&conn, [host UTF8String], (int)port);
         if(status != MONGO_OK) {
             build_error(self, error);
             
@@ -387,7 +373,7 @@ static void build_error(MongoDBClient* client, NSError** error) {
 #pragma mark Query Stuff
 
 + (NSDictionary*)buildQuery:(id)query {
-    if(query == nil ) {
+    if (!query) {
         return [NSDictionary dictionary];
     } else if([query isKindOfClass: [MongoObjectId class]]) {
         return [NSDictionary dictionaryWithObject: query forKey: @"_id"];
@@ -403,7 +389,7 @@ static void build_error(MongoDBClient* client, NSError** error) {
 #pragma mark Database commands
 
 - (BOOL) authenticateForDatabase:(NSString*)database withUsername:(NSString*)username password:(NSString*)password andError:(NSError**)error {
-    if(mongo_cmd_authenticate(&conn, [database cStringUsingEncoding: NSUTF8StringEncoding], [username cStringUsingEncoding: NSUTF8StringEncoding], [password cStringUsingEncoding: NSUTF8StringEncoding])) {
+    if(mongo_cmd_authenticate(&conn, [database UTF8String], [username UTF8String], [password UTF8String])) {
         self.database = database;
         
         return YES;
@@ -419,7 +405,7 @@ static void build_error(MongoDBClient* client, NSError** error) {
 - (BOOL) insert:(NSDictionary*) object intoCollection:(NSString*)collection withError:(NSError**)error {
     bson doc;
     bsonFromDictionary(&doc, object);
-    int result = mongo_insert(&conn, [[NSString stringWithFormat: @"%@.%@", self.database, collection] cStringUsingEncoding: NSUTF8StringEncoding], &doc, NULL);
+    int result = mongo_insert(&conn, [[NSString stringWithFormat: @"%@.%@", self.database, collection] UTF8String], &doc, NULL);
     bson_destroy(&doc);
     
     if(result == MONGO_OK) {
@@ -435,14 +421,13 @@ static void build_error(MongoDBClient* client, NSError** error) {
 }
 
 - (NSArray*) find:(id) query columns: (NSDictionary*) columns skip:(NSInteger)toSkip returningNoMoreThan:(NSInteger)limit fromCollection:(NSString*)collection withError:(NSError**)error {
-    
-    MongoDbCursor* cursor = [self cursorWithFind: query columns: columns skip: toSkip returningNoMoreThan: limit fromCollection: collection withError: error];
+    MongoDbCursor * cursor = [self cursorWithFind: query columns: columns skip: toSkip returningNoMoreThan: limit fromCollection: collection withError: error];
     if(cursor) {
-        NSMutableArray* result = [NSMutableArray new];
+        NSMutableArray * result = [NSMutableArray new];
 
         while(YES) {
-            NSMutableDictionary* doc = [NSMutableDictionary new];
-            if([cursor nextDocumentIntoDictionary: doc withKeys: nil andError: error]) {
+            OrderedDictionary * doc = [OrderedDictionary new];
+            if ([cursor next:doc withError:error]) {
                 [result addObject: doc];
             } else {
                 break;
@@ -464,7 +449,7 @@ static void build_error(MongoDBClient* client, NSError** error) {
     bsonFromDictionary(&mongo_query, to_update);
     bsonFromDictionary(&mongo_op, operation);
     
-    int result = mongo_update(&conn, [[NSString stringWithFormat: @"%@.%@", self.database, collection] cStringUsingEncoding: NSUTF8StringEncoding], &mongo_query, &mongo_op, flag, NULL);
+    int result = mongo_update(&conn, [[NSString stringWithFormat: @"%@.%@", self.database, collection] UTF8String], &mongo_query, &mongo_op, flag, NULL);
     
     bson_destroy(&mongo_op);
     bson_destroy(&mongo_query);
@@ -494,7 +479,7 @@ static void build_error(MongoDBClient* client, NSError** error) {
     bson mongo_query;
     
     bsonFromDictionary(&mongo_query, to_remove);
-    int result = mongo_remove(&conn, [[NSString stringWithFormat: @"%@.%@", self.database, collection] cStringUsingEncoding: NSUTF8StringEncoding], &mongo_query, NULL);
+    int result = mongo_remove(&conn, [[NSString stringWithFormat: @"%@.%@", self.database, collection] UTF8String], &mongo_query, NULL);
     bson_destroy(&mongo_query);
     
     if(result == MONGO_OK) {
@@ -511,7 +496,7 @@ static void build_error(MongoDBClient* client, NSError** error) {
     
     bsonFromDictionary(&mongo_query, to_count);
     
-    int result = mongo_count(&conn, [self.database cStringUsingEncoding: NSUTF8StringEncoding], [collection cStringUsingEncoding: NSUTF8StringEncoding], &mongo_query);
+    int result = mongo_count(&conn, [self.database UTF8String], [collection UTF8String], &mongo_query);
     
     if(result == MONGO_ERROR) {
         build_error(self, error);
@@ -556,7 +541,7 @@ static void build_error(MongoDBClient* client, NSError** error) {
         mongo_client = client;
         conn = [client mongoConnection];
         bsonFromDictionary(&mongo_query, to_find);
-        mongo_cursor_init(&cursor, conn, [[NSString stringWithFormat: @"%@.%@", client.database, collection] cStringUsingEncoding: NSUTF8StringEncoding]);
+        mongo_cursor_init(&cursor, conn, [[NSString stringWithFormat: @"%@.%@", client.database, collection] UTF8String]);
 
         if(columns) {
             bsonFromDictionary(&mongo_columns, columns);
@@ -578,8 +563,7 @@ static void build_error(MongoDBClient* client, NSError** error) {
     return self;
 }
 
-- (void)dealloc
-{
+- (void)dealloc {
     bson_destroy(&mongo_query);
     if(had_columns) {
         bson_destroy(&mongo_columns);
@@ -587,15 +571,14 @@ static void build_error(MongoDBClient* client, NSError** error) {
     mongo_cursor_destroy(&cursor);
 }
 
-- (BOOL) nextDocumentIntoDictionary:(NSMutableDictionary*)doc withKeys:(NSMutableArray*)keys andError:(NSError**)error {
+- (BOOL) next:(OrderedDictionary*)doc withError:(NSError**)error {
     if( mongo_cursor_next( &cursor ) == MONGO_OK ) {
         bson_iterator it;
         
         [doc removeAllObjects];
-        [keys removeAllObjects];
         
         bson_iterator_init(&it, &cursor.current);
-        fill_object_from_bson_ext(doc, keys, &it);
+        fill_object_from_bson_ext(doc, &it);
         
         return YES;
     }
