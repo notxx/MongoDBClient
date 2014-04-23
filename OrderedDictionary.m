@@ -135,6 +135,10 @@ NSString *DescriptionForObject(NSObject *object, id locale, NSUInteger indent)
 	return [array objectAtIndex:anIndex];
 }
 
+- (NSUInteger)countByEnumeratingWithState:(NSFastEnumerationState *)state objects:(__unsafe_unretained id [])buffer count:(NSUInteger)len {
+    return [array countByEnumeratingWithState:state objects:buffer count:len];
+}
+
 //
 //  MODIFIED by Paul Melnikow on March 11, 2012
 //
