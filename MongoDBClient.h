@@ -13,6 +13,8 @@
 
 + (MongoObjectId*)newWithString:(NSString*)string;
 
+@property(readonly) NSString* string;
+
 @end
 
 @interface MongoTimestamp : NSDate

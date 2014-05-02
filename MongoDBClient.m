@@ -14,7 +14,8 @@
 #pragma mark Special Mongo objects
 
 @implementation MongoObjectId {
-    bson_oid_t value;
+    bson_oid_t _value;
+	NSString * _string;
 }
 
 + (instancetype)newWithString:(NSString*)string {
@@ -27,44 +28,58 @@
 }
 
 - (id) init {
-    self = [super init];
-    if(self) {
-        bson_oid_gen(&value);
+	if (self = [super init]) {
+        bson_oid_gen(&_value);
+	    char buffer[25];
+    	bson_oid_to_string(&_value, buffer);
+    	_string = [NSString stringWithCString:buffer encoding:NSUTF8StringEncoding];
     }
     return self;
 }
 
-- (id) initWithOid:(bson_oid_t*)oid {
-    self = [super init];
-    if(self) {
-        memcpy(&value, oid, sizeof(bson_oid_t));
+- (id) initWithString:(NSString *)string {
+	if (self = [super init]) {
+		_string = string;
+		bson_oid_from_string(&_value, string.UTF8String);
+	}
+	return self;
+}
+
+- (id) initWithOid:(bson_oid_t *)oid {
+	if (self = [super init]) {
+        memcpy(&_value, oid, sizeof(bson_oid_t));
+	    char buffer[25];
+    	bson_oid_to_string(&_value, buffer);
+    	_string = [NSString stringWithCString:buffer encoding:NSUTF8StringEncoding];
     }
     return self;
 }
 
 - (id)copyWithZone:(NSZone*) zone {
     MongoObjectId* result = [[self class] allocWithZone:zone];
-    memcpy(&result->value, &value, sizeof(bson_oid_t));
+    memcpy(&result->_value, &_value, sizeof(bson_oid_t));
+	result->_string = _string;
     
     return result;
 }
 
+- (NSString*) string {
+	return _string;
+}
+
 - (NSString*) description {
-    char buffer[25];
-    bson_oid_to_string(&value, buffer);
-    
-    return [NSString stringWithFormat: @"ObjectId('%s')", buffer];
+    return [NSString stringWithFormat: @"ObjectId('%@')", _string];
 }
 
 - (bson_oid_t*) oid {
-    return &value;
+    return &_value;
 }
 
 - (BOOL) isEqual:(id)object {
     if(object == self) {
         return YES;
     } else if([object isKindOfClass: [MongoObjectId class]]) {
-        return memcmp(&value, [object oid], sizeof(bson_oid_t)) == 0;
+        return memcmp(&_value, [object oid], sizeof(bson_oid_t)) == 0;
     }
     
     return NO;
