@@ -455,6 +455,12 @@ static void build_error(MongoDBClient* client, NSError** error) {
     return nil;
 }
 
+-(OrderedDictionary *)findOne:(id)query inCollection:(NSString *)collection withError:(NSError **)error {
+    MongoDbCursor * cursor = [self cursorWithFind:query columns:nil skip:0 returningNoMoreThan:0 fromCollection:collection withError:error];
+    OrderedDictionary * doc = [OrderedDictionary new];
+    if ([cursor next:doc withError:error]) { return doc; }
+    return nil;
+}
 
 - (BOOL) update:(id) query flag:(int)flag withOperation:(NSDictionary*)operation inCollection:(NSString*)collection andError:(NSError**)error {
     bson mongo_query;
