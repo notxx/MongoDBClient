@@ -18,7 +18,7 @@
 	NSString * _string;
 }
 
-+ (instancetype)newWithString:(NSString*)string {
++ (instancetype)oidWithString:(NSString*)string {
     const char* chars = [string UTF8String];
     bson_oid_t oid;
     
@@ -88,9 +88,46 @@
 @end
 
 @implementation MongoTimestamp
+
++(instancetype)timestamp {
+	return [[self alloc] initWithDate:[NSDate new]];
+}
+
++(instancetype)timestampWithDate:(NSDate *)date {
+	return [[self alloc] initWithDate:date];
+}
+
++(instancetype)timestampWithTimeIntervalSince1970:(NSTimeInterval)interval {
+	NSDate * date = [NSDate dateWithTimeIntervalSince1970:interval];
+	return [[self alloc] initWithDate:date];
+}
+
+-(id)initWithDate:(NSDate *)date {
+	if (self = [super init]) {
+		_date = date;
+	}
+	return self;
+}
+
 @end
 
 @implementation MongoSymbol
+
++(instancetype)symbolWithCString:(const char *)s {
+	return [self symbolWithString:[[NSString alloc] initWithCString:s encoding: NSUTF8StringEncoding]];
+}
+
++(instancetype)symbolWithString:(NSString *)string {
+	return [[self alloc] initWithString:string];
+}
+
+-(id)initWithString:(NSString *)string {
+	if (self = [super init]) {
+		_string = string;
+	}
+	return self;
+}
+
 @end
 
 @implementation MongoUndefined
@@ -274,8 +311,7 @@ static id object_from_bson(bson_iterator* it) {
             value = [NSError errorWithDomain: @"Unhandled object type: CODE" code: 0 userInfo: nil];
             break;
         case BSON_SYMBOL:
-            value = [[MongoSymbol alloc] initWithCString: bson_iterator_string(it)
-                                                encoding: NSUTF8StringEncoding];
+            value = [MongoSymbol symbolWithCString: bson_iterator_string(it)];
             break;
         case BSON_CODEWSCOPE:
             value = [NSError errorWithDomain: @"Unhandled object type: CODEWSCOPE" code: 0 userInfo: nil];
@@ -285,7 +321,7 @@ static id object_from_bson(bson_iterator* it) {
             break;
         case BSON_TIMESTAMP:
             timestamp = bson_iterator_timestamp(it);
-            value = [MongoTimestamp dateWithTimeIntervalSince1970: timestamp.t];
+            value = [MongoTimestamp timestampWithTimeIntervalSince1970: timestamp.t];
             break;
         case BSON_LONG:
             value = [NSNumber numberWithLong: bson_iterator_long(it)];
@@ -356,7 +392,7 @@ static void build_error(MongoDBClient* client, NSError** error) {
     mongo_clear_errors(conn);
 }
                   
-+ (instancetype) newWithHost:(NSString*)host port:(NSUInteger)port andError:(NSError**)error {
++ (instancetype) clientWithHost:(NSString*)host port:(NSUInteger)port andError:(NSError**)error {
     return [[MongoDBClient alloc] initWithHost: host port: port andError: error];
 }
 

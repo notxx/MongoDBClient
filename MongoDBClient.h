@@ -11,16 +11,31 @@
 
 @interface MongoObjectId : NSObject
 
-+ (MongoObjectId*)newWithString:(NSString*)string;
++ (MongoObjectId*)oidWithString:(NSString*)string;
 
 @property(readonly) NSString* string;
 
 @end
 
-@interface MongoTimestamp : NSDate
+@interface MongoTimestamp : NSObject
+
++(instancetype)timestamp;
++(instancetype)timestampWithDate:(NSDate *)date;
+
+@property (strong) NSDate * date;
+
+-(id)initWithDate:(NSDate *)date;
+
 @end
 
-@interface MongoSymbol : NSString
+@interface MongoSymbol : NSObject
+
++(instancetype)symbolWithString:(NSString *)string;
+
+@property (strong) NSString * string;
+
+-(id)initWithString:(NSString *)string;
+
 @end
 
 @interface MongoUndefined : NSObject
@@ -43,7 +58,7 @@
 
 @interface MongoDBClient : NSObject
 
-+ (MongoDBClient*) newWithHost:(NSString*)host port:(NSUInteger)port andError:(NSError**)error;
++ (MongoDBClient*) clientWithHost:(NSString*)host port:(NSUInteger)port andError:(NSError**)error;
 - (id) initWithHost:(NSString*)host port:(NSUInteger)port andError:(NSError**)error;
 
 - (BOOL) authenticateForDatabase:(NSString*)database withUsername:(NSString*)username password:(NSString*)password andError:(NSError**)error;
