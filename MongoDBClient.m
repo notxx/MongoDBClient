@@ -343,7 +343,10 @@ static void fill_object_from_bson_ext(id object, bson_iterator* it) {
             [object setObject: val forKey: key];
         }
     } else if([object isKindOfClass: [NSArray class]]) {
-        
+        while(bson_iterator_next(it)) {
+            id val = object_from_bson(it);
+            [object addObject: val];
+        }
     } else {
         @throw [NSException exceptionWithName: @"CRASH" reason: @"Attempt to deserialize BSON into unhandled object type" userInfo: [NSDictionary dictionaryWithObject: object forKey: @"object"]];
     }
