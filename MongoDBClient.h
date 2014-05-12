@@ -65,8 +65,10 @@
 
 - (BOOL) insert:(NSDictionary*) object intoCollection:(NSString*)collection withError:(NSError**)error;
 - (NSArray*) find:(id) query inCollection:(NSString*)collection withError:(NSError**)error;
+-(NSArray *) find:(id)query columns:(NSDictionary*)columns fromCollection:(NSString*)collection withError:(NSError**)error;
 - (NSArray*) find:(id) query columns: (NSDictionary*) columns skip:(NSInteger)toSkip returningNoMoreThan:(NSInteger)limit fromCollection:(NSString*)collection withError:(NSError**)error;
 -(OrderedDictionary *)findOne:(id)query inCollection:(NSString *)collection withError:(NSError **)error;
+-(OrderedDictionary *)findOne:(id)query columns:(NSDictionary *)columns fromCollection:(NSString *)collection withError:(NSError **)error;
 - (BOOL) update:(id) query withOperation:(NSDictionary*)operation inCollection:(NSString*)collection andError:(NSError**)error;
 - (BOOL) upsert:(id) query withOperation:(NSDictionary*)operation inCollection:(NSString*)collection andError:(NSError**)error;
 - (BOOL) updateAll:(id) query withOperation:(NSDictionary*)operation inCollection:(NSString*)collection andError:(NSError**)error;

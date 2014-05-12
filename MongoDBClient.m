@@ -471,7 +471,11 @@ static void build_error(MongoDBClient* client, NSError** error) {
 }
 
 - (NSArray*) find:(id) query inCollection:(NSString*)collection withError:(NSError**)error {
-    return [self find: query columns: nil skip: 0 returningNoMoreThan: 0 fromCollection: collection withError: error];
+    return [self find: query columns: nil fromCollection: collection withError: error];
+}
+
+-(NSArray *) find:(id)query columns:(NSDictionary*)columns fromCollection:(NSString*)collection withError:(NSError**)error {
+    return [self find: query columns: columns skip: 0 returningNoMoreThan: 0 fromCollection: collection withError: error];
 }
 
 - (NSArray*) find:(id) query columns: (NSDictionary*) columns skip:(NSInteger)toSkip returningNoMoreThan:(NSInteger)limit fromCollection:(NSString*)collection withError:(NSError**)error {
@@ -495,7 +499,11 @@ static void build_error(MongoDBClient* client, NSError** error) {
 }
 
 -(OrderedDictionary *)findOne:(id)query inCollection:(NSString *)collection withError:(NSError **)error {
-    MongoDbCursor * cursor = [self cursorWithFind:query columns:nil skip:0 returningNoMoreThan:0 fromCollection:collection withError:error];
+	return [self findOne:query columns:nil fromCollection:collection withError:error];
+}
+
+-(OrderedDictionary *)findOne:(id)query columns:(NSDictionary *)columns fromCollection:(NSString *)collection withError:(NSError **)error {
+    MongoDbCursor * cursor = [self cursorWithFind:query columns:columns skip:0 returningNoMoreThan:0 fromCollection:collection withError:error];
     OrderedDictionary * doc = [OrderedDictionary new];
     if ([cursor next:doc withError:error]) { return doc; }
     return nil;
