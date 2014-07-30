@@ -76,6 +76,8 @@
 - (NSUInteger) count:(id)query inCollection:(NSString*)collection withError:(NSError**)error;
 
 - (MongoDbCursor*) cursorWithFind:(id) query columns: (NSDictionary*) columns skip:(NSInteger)toSkip returningNoMoreThan:(NSInteger)limit fromCollection:(NSString*)collection withError:(NSError**)error;
+-(id)aggregateCollection:(NSString *) collection pipeline:(NSArray *)pipeline withError:(NSError**)error;
+-(id)aggregateCollection:(NSString *) collection pipeline:(NSArray *)pipeline options:(NSDictionary *)options withError:(NSError**)error;
 
 @property (copy) NSString* database;
 

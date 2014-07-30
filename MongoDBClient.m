@@ -573,6 +573,42 @@ static void build_error(MongoDBClient* client, NSError** error) {
     return result;
 }
 
+-(id)aggregateCollection:(NSString *)collection pipeline:(NSArray *)pipeline withError:(NSError**)error {
+	return [self aggregateCollection:collection pipeline:pipeline options:NULL withError:error];
+}
+
+-(id)aggregateCollection:(NSString *)collection pipeline:(NSArray *)pipeline options:(NSDictionary *)options withError:(NSError**)error {
+	if (!options) { options = @{}; }
+	bson mongo_cmd, mongo_result;
+	bson_init(&mongo_cmd);
+	add_object_to_bson(&mongo_cmd, @"aggregate", collection);
+	add_object_to_bson(&mongo_cmd, @"pipeline", pipeline);
+	for (NSString* key in options) {
+		id obj = [options objectForKey: key];
+		add_object_to_bson(&mongo_cmd, key, obj);
+	}
+	bson_finish(&mongo_cmd);
+
+	int cmd_result = mongo_run_command(&conn, self.database.UTF8String, &mongo_cmd, &mongo_result);
+
+	OrderedDictionary * result;
+	if(cmd_result == MONGO_ERROR) {
+		build_error(self, error);
+	} else {
+		result = [OrderedDictionary new];
+		bson_iterator it;
+
+		[result removeAllObjects];
+
+		bson_iterator_init(&it, &mongo_result);
+		fill_object_from_bson_ext(result, &it);
+	}
+
+	bson_destroy(&mongo_cmd);
+	bson_destroy(&mongo_result);
+	return result ? result[@"result"] : nil;
+}
+
 #pragma mark -
 #pragma mark Cursor creation methods
 
