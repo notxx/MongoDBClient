@@ -156,7 +156,8 @@
 
 @interface MongoDbCursor(Private)
 
-- (id) initWithClient:(MongoDBClient*)client query:(id) query columns: (NSDictionary*) columns skip:(NSInteger)toSkip returningNoMoreThan:(NSInteger)limit fromCollection:(NSString*)collection withError:(NSError**)error;
+//- (id) initWithClient:(MongoDBClient*)client query:(id) query columns: (NSDictionary*) columns skip:(NSInteger)toSkip returningNoMoreThan:(NSInteger)limit fromCollection:(NSString*)collection withError:(NSError**)error;
+-(id)initWithClient:(MongoDBClient*)client collection:(NSString*)collection withError:(NSError**)error;
 
 @end
 
@@ -470,29 +471,29 @@ static void build_error(MongoDBClient* client, NSError** error) {
     return NO;
 }
 
-- (NSArray*) find:(id) query inCollection:(NSString*)collection withError:(NSError**)error {
-    return [self find: query columns: nil fromCollection: collection withError: error];
+-(NSArray*) find:(id)query inCollection:(NSString*)collection withError:(NSError**)error {
+    return [self find:query columns:nil fromCollection:collection withError:error];
 }
 
--(NSArray *) find:(id)query columns:(NSDictionary*)columns fromCollection:(NSString*)collection withError:(NSError**)error {
-    return [self find: query columns: columns skip: 0 returningNoMoreThan: 0 fromCollection: collection withError: error];
+-(NSArray *) find:(id)query columns:(NSDictionary *)columns fromCollection:(NSString*)collection withError:(NSError**)error {
+    return [self find:query columns:columns skip:0 limit:0 collection:collection withError:error];
 }
 
-- (NSArray*) find:(id) query columns: (NSDictionary*) columns skip:(NSInteger)toSkip returningNoMoreThan:(NSInteger)limit fromCollection:(NSString*)collection withError:(NSError**)error {
-    MongoDbCursor * cursor = [self cursorWithFind: query columns: columns skip: toSkip returningNoMoreThan: limit fromCollection: collection withError: error];
-    if(cursor) {
-        NSMutableArray * result = [NSMutableArray new];
-
-        while(YES) {
-            OrderedDictionary * doc = [OrderedDictionary new];
-            if ([cursor next:doc withError:error]) {
-                [result addObject: doc];
-            } else {
-                break;
-            }
-        }
+-(NSArray*) find:(id)query
+		 columns:(NSDictionary *)columns
+			skip:(NSInteger)skip
+		   limit:(NSInteger)limit
+	  collection:(NSString*)collection
+	   withError:(NSError**)error {
+//    MongoDbCursor * cursor = [self cursorWithFind:query columns:columns skip:skip returningNoMoreThan:limit fromCollection:collection withError:error];
+    MongoDbCursor * cursor = [self cursorOnCollection:collection withError:error];
+    if (cursor) {
+        [cursor setQuery:query];
+        [cursor setColumns:columns];
+        [cursor setSkip:skip];
+        [cursor setLimit:limit];
         
-        return result;
+        return [cursor toArray:error];
     }
     
     return nil;
@@ -503,7 +504,9 @@ static void build_error(MongoDBClient* client, NSError** error) {
 }
 
 -(OrderedDictionary *)findOne:(id)query columns:(NSDictionary *)columns fromCollection:(NSString *)collection withError:(NSError **)error {
-    MongoDbCursor * cursor = [self cursorWithFind:query columns:columns skip:0 returningNoMoreThan:0 fromCollection:collection withError:error];
+    MongoDbCursor * cursor = [self cursorOnCollection:collection withError:error];
+    [cursor setQuery:query];
+    [cursor setLimit:1];
     OrderedDictionary * doc = [OrderedDictionary new];
     if ([cursor next:doc withError:error]) { return doc; }
     return nil;
@@ -612,8 +615,8 @@ static void build_error(MongoDBClient* client, NSError** error) {
 #pragma mark -
 #pragma mark Cursor creation methods
 
-- (MongoDbCursor*) cursorWithFind:(id) query columns: (NSDictionary*) columns skip:(NSInteger)toSkip returningNoMoreThan:(NSInteger)limit fromCollection:(NSString*)collection withError:(NSError**)error {
-    return [[MongoDbCursor alloc] initWithClient:self query: query columns: columns skip: toSkip returningNoMoreThan:limit fromCollection: collection withError: error];
+- (MongoDbCursor*) cursorOnCollection:(NSString*)collection withError:(NSError**)error {
+	return [[MongoDbCursor alloc] initWithClient:self collection:collection withError:error];
 }
 
 
@@ -628,67 +631,109 @@ static void build_error(MongoDBClient* client, NSError** error) {
 
 
 @implementation MongoDbCursor {
-    bson mongo_query;
-    BOOL had_columns;
-    bson mongo_columns;
-    mongo* conn;
-    MongoDBClient* mongo_client;
+    MongoDBClient * mongo_client;
+    mongo * conn;
+
+	BOOL need_teardown;
+	NSMutableDictionary * query; // 查询条件，包括排序
+    bson _query;
+	NSDictionary * columns; // 查询列
+    bson _columns;
+    int skip;
+    int limit;
+    
     mongo_cursor cursor;
 }
 
-- (id) initWithClient:(MongoDBClient*)client query:(id) query columns: (NSDictionary*) columns skip:(NSInteger)toSkip returningNoMoreThan:(NSInteger)limit fromCollection:(NSString*)collection withError:(NSError**)error {
-
-    self = [super init];
-    
-    if(self) {
-        NSDictionary* to_find = [MongoDBClient buildQuery: query];
+-(id)initWithClient:(MongoDBClient*)client collection:(NSString*)collection withError:(NSError**)error {
+	if (self = [super init]) {
         mongo_client = client;
         conn = [client mongoConnection];
-        bsonFromDictionary(&mongo_query, to_find);
+		query = [NSMutableDictionary new];
         mongo_cursor_init(&cursor, conn, [[NSString stringWithFormat: @"%@.%@", client.database, collection] UTF8String]);
-
-        if(columns) {
-            bsonFromDictionary(&mongo_columns, columns);
-            mongo_cursor_set_fields(&cursor, &mongo_columns);
-            had_columns = YES;
-        } else {
-            had_columns = NO;
-            mongo_cursor_set_fields(&cursor, NULL);
-        }
-        if(toSkip>0) {
-            mongo_cursor_set_skip(&cursor, (int)toSkip);
-        }
-        if(limit>0) {
-            mongo_cursor_set_limit(&cursor, (int)limit);
-        }
-        mongo_cursor_set_query(&cursor, &mongo_query);
-    }
-    
-    return self;
+        skip = 0;
+        limit = 0;
+	}
+	return self;
 }
 
 - (void)dealloc {
-    bson_destroy(&mongo_query);
-    if(had_columns) {
-        bson_destroy(&mongo_columns);
-    }
-    mongo_cursor_destroy(&cursor);
+	if (need_teardown) { [self teardown]; } // 如果已经初始化需要清理
+	mongo_cursor_destroy(&cursor);
+}
+
+// 初始化c形式变量
+-(void)setup {
+	NSLog(@"%@ %@ %d %d", query, columns, skip, limit);
+	self->need_teardown = YES;
+	bsonFromDictionary(&_query, query); // 初始化查询语句
+	if (!columns) columns = @{}; // 初始化查询列
+	bsonFromDictionary(&_columns, columns);
+	mongo_cursor_set_fields(&cursor, &_columns);
+	if (skip > 0) { mongo_cursor_set_skip(&cursor, skip); }
+	if (limit > 0) { mongo_cursor_set_limit(&cursor, (int)limit); }
+	mongo_cursor_set_query(&cursor, &_query);
+}
+
+// 清理c形式变量
+-(void)teardown {
+    bson_destroy(&_query);
+    bson_destroy(&_columns);
+    self->need_teardown = NO;
+}
+
+-(void)setQuery:(id)query {
+	if (need_teardown) { return; }
+	NSDictionary* to_find = [MongoDBClient buildQuery: query];
+	self->query[@"query"] = to_find;
+}
+
+-(void)setSort:(NSDictionary *)sort {
+	if (need_teardown) { return; }
+	if (!query[@"query"]) { query[@"query"] = @{}; }
+	self->query[@"orderby"] = sort;
+}
+
+-(void)setColumns:(NSDictionary *)columns {
+	if (need_teardown) { return; }
+	self->columns = columns;
+}
+
+-(void)setSkip:(int)skip {
+	if (need_teardown) { return; }
+	self->skip = skip;
+}
+
+-(void)setLimit:(int)limit {
+	if (need_teardown) { return; }
+	self->limit = limit;
+}
+
+-(NSArray *)toArray:(NSError**)error {
+	NSMutableArray * result = [NSMutableArray new];
+
+	for (id doc = [OrderedDictionary new];; doc = [OrderedDictionary new]) {
+		if (![self next:doc withError:error]) { break; }
+		[result addObject: doc];
+	}
+	
+	return result;
 }
 
 - (BOOL) next:(OrderedDictionary*)doc withError:(NSError**)error {
-    if( mongo_cursor_next( &cursor ) == MONGO_OK ) {
-        bson_iterator it;
-        
-        [doc removeAllObjects];
-        
-        bson_iterator_init(&it, &cursor.current);
-        fill_object_from_bson_ext(doc, &it);
-        
-        return YES;
-    }
-    
-    build_error(mongo_client, error);
-    return NO;
+	if (!need_teardown) { [self setup]; }
+	if (mongo_cursor_next(&cursor) == MONGO_OK) {
+		bson_iterator it;
+		[doc removeAllObjects];
+		
+		bson_iterator_init(&it, &cursor.current);
+		fill_object_from_bson_ext(doc, &it);
+		
+		return YES;
+	}
+	
+	build_error(mongo_client, error);
+	return NO;
 }
 
 @end

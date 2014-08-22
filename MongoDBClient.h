@@ -52,7 +52,13 @@
 
 @interface MongoDbCursor : NSObject
 
-- (BOOL) next:(OrderedDictionary*)doc withError:(NSError**)error;
+-(void)setQuery:(id)query;
+-(void)setSort:(NSDictionary *)sort;
+-(void)setColumns:(NSDictionary *)columns;
+-(void)setSkip:(int)skip;
+-(void)setLimit:(int)limit;
+-(NSArray *)toArray:(NSError**)error;
+-(BOOL) next:(OrderedDictionary*)doc withError:(NSError**)error;
 
 @end
 
@@ -64,9 +70,9 @@
 - (BOOL) authenticateForDatabase:(NSString*)database withUsername:(NSString*)username password:(NSString*)password andError:(NSError**)error;
 
 - (BOOL) insert:(NSDictionary*) object intoCollection:(NSString*)collection withError:(NSError**)error;
-- (NSArray*) find:(id) query inCollection:(NSString*)collection withError:(NSError**)error;
--(NSArray *) find:(id)query columns:(NSDictionary*)columns fromCollection:(NSString*)collection withError:(NSError**)error;
-- (NSArray*) find:(id) query columns: (NSDictionary*) columns skip:(NSInteger)toSkip returningNoMoreThan:(NSInteger)limit fromCollection:(NSString*)collection withError:(NSError**)error;
+-(NSArray*) find:(id)query inCollection:(NSString*)collection withError:(NSError**)error;
+-(NSArray*) find:(id)query columns:(NSDictionary *)columns fromCollection:(NSString*)collection withError:(NSError**)error;
+-(NSArray*) find:(id)query columns:(NSDictionary *)columns skip:(NSInteger)skip limit:(NSInteger)limit collection:(NSString*)collection withError:(NSError**)error;
 -(OrderedDictionary *)findOne:(id)query inCollection:(NSString *)collection withError:(NSError **)error;
 -(OrderedDictionary *)findOne:(id)query columns:(NSDictionary *)columns fromCollection:(NSString *)collection withError:(NSError **)error;
 - (BOOL) update:(id) query withOperation:(NSDictionary*)operation inCollection:(NSString*)collection andError:(NSError**)error;
@@ -75,7 +81,7 @@
 - (BOOL) remove:(id)query fromCollection:(NSString*)collection withError:(NSError**)error;
 - (NSUInteger) count:(id)query inCollection:(NSString*)collection withError:(NSError**)error;
 
-- (MongoDbCursor*) cursorWithFind:(id) query columns: (NSDictionary*) columns skip:(NSInteger)toSkip returningNoMoreThan:(NSInteger)limit fromCollection:(NSString*)collection withError:(NSError**)error;
+-(MongoDbCursor*) cursorOnCollection:(NSString*)collection withError:(NSError**)error;
 -(id)aggregateCollection:(NSString *) collection pipeline:(NSArray *)pipeline withError:(NSError**)error;
 -(id)aggregateCollection:(NSString *) collection pipeline:(NSArray *)pipeline options:(NSDictionary *)options withError:(NSError**)error;
 
