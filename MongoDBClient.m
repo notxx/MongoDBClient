@@ -506,6 +506,7 @@ static void build_error(MongoDBClient* client, NSError** error) {
 -(OrderedDictionary *)findOne:(id)query columns:(NSDictionary *)columns fromCollection:(NSString *)collection withError:(NSError **)error {
     MongoDbCursor * cursor = [self cursorOnCollection:collection withError:error];
     [cursor setQuery:query];
+    [cursor setColumns:columns];
     [cursor setLimit:1];
     OrderedDictionary * doc = [OrderedDictionary new];
     if ([cursor next:doc withError:error]) { return doc; }
