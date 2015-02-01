@@ -471,6 +471,31 @@ static void build_error(MongoDBClient* client, NSError** error) {
     return NO;
 }
 
+- (BOOL) insertBatch:(NSArray*) objects intoCollection:(NSString*)collection withError:(NSError**)error {
+    const bson * doc, ** docs;
+    NSUInteger n = objects.count, i = 0;
+    docs = (const bson **)malloc(sizeof(bson *) * n);
+    for (NSDictionary* object in objects) {
+        doc = (bson *)malloc(sizeof(bson));
+        bsonFromDictionary((bson *)doc, object);
+        docs[i++] = doc;
+    }
+    int result = mongo_insert_batch(&conn, [[NSString stringWithFormat: @"%@.%@", self.database, collection] UTF8String], docs, n, NULL, 0);
+    
+    for (i = 0; i < n; i++) {
+        bson_destroy((bson *)docs[i]);
+        free((void *)docs[i]);
+    }
+    free(docs);
+    
+    if(result == MONGO_OK) {
+        return YES;
+    }
+    
+    build_error(self, error);
+    return NO;
+}
+
 -(NSArray*) find:(id)query inCollection:(NSString*)collection withError:(NSError**)error {
     return [self find:query columns:nil fromCollection:collection withError:error];
 }

@@ -70,6 +70,7 @@
 - (BOOL) authenticateForDatabase:(NSString*)database withUsername:(NSString*)username password:(NSString*)password andError:(NSError**)error;
 
 - (BOOL) insert:(NSDictionary*) object intoCollection:(NSString*)collection withError:(NSError**)error;
+- (BOOL) insertBatch:(NSArray*)objects intoCollection:(NSString*)collection withError:(NSError**)error;
 -(NSArray*) find:(id)query inCollection:(NSString*)collection withError:(NSError**)error;
 -(NSArray*) find:(id)query columns:(NSDictionary *)columns fromCollection:(NSString*)collection withError:(NSError**)error;
 -(NSArray*) find:(id)query columns:(NSDictionary *)columns skip:(NSInteger)skip limit:(NSInteger)limit collection:(NSString*)collection withError:(NSError**)error;
